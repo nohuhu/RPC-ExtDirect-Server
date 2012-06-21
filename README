@@ -1,0 +1,30 @@
+RPC-ExtDirect-Server version 0.01
+=================================
+
+This module provides minimal implementation of Ext.Direct capable server
+in pure Perl. It can be used for testing Ext.Direct Actions written in Perl,
+or as basis for application server to use in production environment.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+RPC::ExtDirect, CGI::ExtDirect, HTTP::Server::Simple, JSON,
+Attribute::Handlers.
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2012 by Alexander Tokarev
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. See perlartistic.
+
