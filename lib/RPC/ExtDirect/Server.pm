@@ -58,14 +58,14 @@ sub new {
         unless defined $static_dir;
 
     # We generate random port here to avoid clashing in parallel testing
-    my $port = $params{port} // 30000 + int rand 9999;
+    my $port = $params{port} || 30000 + int rand 9999;
 
     logit("New HTTPServer with port $port on localhost");
 
     my $self = $class->SUPER::new($port);
 
     # Host is always localhost for testing, except when overridden
-    $self->host( $host // '127.0.0.1' );
+    $self->host( $host || '127.0.0.1' );
 
     $self->{static_dir} = $static_dir;
 
@@ -81,10 +81,16 @@ sub new {
 #
 
 sub parse_request {
-    $_ = <STDIN> // return;
+    $_ = <STDIN>;
+
+    return unless defined $_;
 
     /^(\w+)\s+(\S+)(?:\s+(\S+))?\r?$/ and
-        return ($1 // '', $2 // '', $3 // '');
+        return (
+            defined $1 ? $1 : '',
+            defined $2 ? $2 : '',
+            defined $3 ? $3 : '',
+        );
 }
 
 ### PUBLIC INSTANCE METHOD ###
@@ -143,7 +149,7 @@ sub handle_request {
 sub handle_404 {
     my ($self, $cgi, $url) = @_;
 
-    $cgi //= $self->cgi;
+    $cgi ||= $self->cgi;
 
     logit("Handling 404");
 
@@ -160,7 +166,7 @@ sub handle_404 {
 sub handle_500 {
     my ($self, $cgi, $msg) = @_;
 
-    $cgi //= $self->cgi;
+    $cgi ||= $self->cgi;
 
     logit("Handling 500");
 
@@ -224,7 +230,7 @@ sub handle_static {
     my $suff;
     $file_name =~ /.*\.(\w+)$/ and $suff = $1;
 
-    my $type = $mime // $MIME_TYPES{$suff} // 'application/octet-stream';
+    my $type = $mime || $MIME_TYPES{$suff} || 'application/octet-stream';
 
     logit("Got MIME type $type");
 
@@ -271,7 +277,7 @@ sub handle_static {
 sub handle_default {
     my ($self, $cgi) = @_;
 
-    $cgi //= $self->cgi;
+    $cgi ||= $self->cgi;
 
     my $path = $cgi->path_info();
 
@@ -314,7 +320,7 @@ sub handle_default {
 sub handle_extdirect_api {
     my ($self, $cgi) = @_;
 
-    $cgi //= $self->cgi;
+    $cgi ||= $self->cgi;
 
     logit("Got Ext.Direct API request");
 
@@ -329,7 +335,7 @@ sub handle_extdirect_api {
 sub handle_extdirect_router {
     my ($self, $cgi) = @_;
 
-    $cgi //= $self->cgi;
+    $cgi ||= $self->cgi;
 
     logit("Got Ext.Direct route request");
 
@@ -344,7 +350,7 @@ sub handle_extdirect_router {
 sub handle_extdirect_events {
     my ($self, $cgi) = @_;
 
-    $cgi //= $self->cgi;
+    $cgi ||= $self->cgi;
 
     logit("Got Ext.Direct event poll request");
 

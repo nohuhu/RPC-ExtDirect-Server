@@ -16,6 +16,8 @@ use strict;
 use warnings;
 no  warnings 'uninitialized';
 
+use RPC::ExtDirect::Test::Util;
+
 use Test::More tests => 4;
 use WWW::Mechanize;
 
@@ -40,5 +42,9 @@ my $expected_api = <<'END_API';
 Ext.app.REMOTING_API = {"actions":{"test":[{"name":"bar","params":["foo","bar"]},{"len":2,"name":"foo"}]},"type":"remoting","url":"/router"};
 END_API
 
-is $mech->content, $expected_api, 'Got content';
+my $actual_data   = deparse_api($mech->content);
+my $expected_data = deparse_api($expected_api);
+
+is_deeply $actual_data, $expected_data, 'Got content'
+    or diag explain $actual_data;
 
