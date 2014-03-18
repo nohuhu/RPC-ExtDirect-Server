@@ -33,18 +33,16 @@ ok $port, 'Got port';
 
 my $mech = new WWW::Mechanize;
 
-eval { $mech->get("http://localhost:$port/api") };
+eval { $mech->get("http://localhost:$port/extdirectapi") };
 
 is $mech->status, 200,                      'Got status';
 is $mech->ct,     'application/javascript', 'Got content type';
 
-my $expected_api = <<'END_API';
-Ext.app.REMOTING_API = {"actions":{"test":[{"name":"bar","params":["foo","bar"]},{"len":2,"name":"foo"}]},"type":"remoting","url":"/router"};
+my $want = <<'END_API';
+Ext.app.REMOTING_API = {"actions":{"test":[{"name":"bar","params":["foo","bar"]},{"len":2,"name":"foo"}]},"type":"remoting","url":"/extdirectrouter"};
 END_API
 
-my $actual_data   = deparse_api($mech->content);
-my $expected_data = deparse_api($expected_api);
+my $have = $mech->content;
 
-is_deeply $actual_data, $expected_data, 'Got content'
-    or diag explain $actual_data;
+cmp_api $have, $want, "API content";
 

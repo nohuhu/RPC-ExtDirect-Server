@@ -8,25 +8,36 @@ use HTTP::Date qw(str2time time2str);
 use CGI '-nph';
 use List::Util qw(first);
 
-use RPC::ExtDirect::API     api_path    => '/api',
-                            router_path => '/router',
-                            poll_path   => '/events',
-                            ;
-
+use RPC::ExtDirect::Util::Accessor;
+use RPC::ExtDirect::Config;
+use RPC::ExtDirect::API;
+use RPC::ExtDirect;
 use CGI::ExtDirect;
 
 use base 'HTTP::Server::Simple::CGI';
 
-### VERSION ###
+#
+# This module is not compatible with RPC::ExtDirect < 3.0
+#
 
-our $VERSION = '0.01';
+die __PACKAGE__." requires RPC::ExtDirect 3.0+"
+    if $RPC::ExtDirect::VERSION lt '3.0';
+
+### PACKAGE GLOBAL VARIABLE ###
+#
+# Version of this module.
+#
+
+our $VERSION = '3.00_01';
 
 ### PUBLIC PACKAGE VARIABLE ###
 #
 # Turns debugging on and off
 #
+# DEPRECATED. Use `debug` Config option instead.
+#
 
-our $DEBUG = 0;
+our $DEBUG;
 
 ### PUBLIC PACKAGE VARIABLE ###
 #
@@ -38,9 +49,9 @@ our @DISPATCH = (
     # Format:
 #   { match => qr{URI}, code => \&method, },
 
-    { match => qr{^/api},    code => \&handle_extdirect_api    },
-    { match => qr{^/router}, code => \&handle_extdirect_router },
-    { match => qr{^/events}, code => \&handle_extdirect_events },
+#     { match => qr{^/api},    code => \&handle_extdirect_api    },
+#     { match => qr{^/router}, code => \&handle_extdirect_router },
+#     { match => qr{^/events}, code => \&handle_extdirect_events },
 );
 
 ### PUBLIC CLASS METHOD (CONSTRUCTOR) ###
@@ -49,16 +60,22 @@ our @DISPATCH = (
 #
 
 sub new {
-    my ($class, %params) = @_;
+    my ($class, %arg) = @_;
 
-    my $host       = $params{host};
-    my $static_dir = $params{static_dir};
+    my $api        = delete $arg{api}    || RPC::ExtDirect->get_api();
+    my $config     = delete $arg{config} || $api->config;
+    my $host       = delete $arg{host};
+    my $static_dir = delete $arg{static_dir};
 
     die "Static directory is required parameter, stopped\n"
         unless defined $static_dir;
 
     # We generate random port here to avoid clashing in parallel testing
-    my $port = $params{port} || 30000 + int rand 9999;
+    my $port = delete $arg{port} || 30000 + int rand 9999;
+
+    $config->set_options(%arg);
+
+    $DEBUG = $config->debug;
 
     logit("New HTTPServer with port $port on localhost");
 
@@ -67,7 +84,20 @@ sub new {
     # Host is always localhost for testing, except when overridden
     $self->host( $host || '127.0.0.1' );
 
-    $self->{static_dir} = $static_dir;
+    $self->static_dir($static_dir);
+
+    # Set the default handlers
+    for my $type ( qw/ api router poll / ) {
+        my $uri_getter = "${type}_path";
+        my $handler    = "handle_extdirect_${type}";
+        my $uri        = $config->$uri_getter;
+        
+        if ( $uri ) {
+            push @DISPATCH, {
+                match => qr/^\Q$uri\E/, code => \&{ $handler },
+            }
+        }
+    }
 
     logit("Using static directory ". $self->static_dir);
 
@@ -122,7 +152,7 @@ sub handle_request {
     my ($self, $cgi) = @_;
 
     $cgi->nph(1);
-    $self->{cgi} = $cgi;
+    $self->cgi($cgi);
 
     my $path_info = $cgi->path_info();
 
@@ -347,7 +377,7 @@ sub handle_extdirect_router {
 # Poll Ext.Direct event providers for events
 #
 
-sub handle_extdirect_events {
+sub handle_extdirect_poll {
     my ($self, $cgi) = @_;
 
     $cgi ||= $self->cgi;
@@ -359,11 +389,12 @@ sub handle_extdirect_events {
 
 ### PUBLIC INSTANCE METHODS ###
 #
-# Read only getters
+# Read-write accessors
 #
 
-sub cgi        { $_[0]->{cgi}        }
-sub static_dir { $_[0]->{static_dir} }
+RPC::ExtDirect::Util::Accessor->mk_accessors(
+    simple => [qw/ api config cgi static_dir /],
+);
 
 ### PUBLIC PACKAGE SUBROUTINE ###
 #
@@ -393,7 +424,11 @@ sub print_banner {
 sub _handle_extdirect {
     my ($self, $cgi, $what) = @_;
 
-    my $exd = CGI::ExtDirect->new({ cgi => $cgi, debug => 1});
+    my $exd = CGI::ExtDirect->new({
+        api    => $self->api,
+        config => $self->config,
+        cgi    => $cgi,
+    });
 
     # Standard CGI headers for this handler
     my %std_cgi = ( nph => 1, '-charset' => 'utf-8' );
