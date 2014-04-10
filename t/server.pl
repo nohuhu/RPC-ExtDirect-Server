@@ -1,16 +1,20 @@
 # This script can be used for manual HTTP server testing in case
 # something goes awry
 
-use common::sense;
+use strict;
+use warnings;
 
-use IS::Devel::Test::HTTPServer;
+use RPC::ExtDirect::Server;
 
-my $dsid = shift @ARGV // '_test';
+my $port = shift @ARGV || 30000 + int rand 10000;
 
-my $server = IS::Devel::Test::HTTPServer->new(dsid => $dsid);
-my $port   = $server->port;
+my $server = RPC::ExtDirect::Server->new(
+    static_dir => '/tmp',
+    port       => $port,
+);
+$port = $server->port;
 
-say "Listening on port $port";
+print "Listening on port $port\n";
 
 $server->run();
 
