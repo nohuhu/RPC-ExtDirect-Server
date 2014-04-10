@@ -4,6 +4,7 @@ use strict;
 use warnings;
 no  warnings 'uninitialized';   ## no critic
 
+use Carp;
 use HTTP::Date qw(str2time time2str);
 use CGI '-nph';
 use List::Util qw(first);
@@ -48,10 +49,6 @@ our @DISPATCH = (
 
     # Format:
 #   { match => qr{URI}, code => \&method, },
-
-#     { match => qr{^/api},    code => \&handle_extdirect_api    },
-#     { match => qr{^/router}, code => \&handle_extdirect_router },
-#     { match => qr{^/events}, code => \&handle_extdirect_events },
 );
 
 ### PUBLIC CLASS METHOD (CONSTRUCTOR) ###
@@ -67,11 +64,15 @@ sub new {
     my $host       = delete $arg{host};
     my $static_dir = delete $arg{static_dir};
 
-    die "Static directory is required parameter, stopped\n"
+    croak __PACKAGE__.": Static directory is required parameter, stopped\n"
         unless defined $static_dir;
 
-    # We generate random port here to avoid clashing in parallel testing
-    my $port = delete $arg{port} || 30000 + int rand 9999;
+    # We used to generate random port here, but now just require the caller
+    # to do that if they wish
+    my $port = delete $arg{port};
+    
+    croak __PACKAGE__.": Port is required parameter, stopped\n"
+        unless $port;
 
     $config->set_options(%arg);
 
