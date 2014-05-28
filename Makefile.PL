@@ -10,19 +10,21 @@ WriteMakefile(
                 'WWW::Mechanize' => 0,
             },
             PREREQ_PM => {
-                'RPC::ExtDirect' => '1.31',
-                'CGI::ExtDirect' => '1.12',
+                'RPC::ExtDirect'       => '1.31',
+                'CGI::ExtDirect'       => '1.12',
+                'HTTP::Server::Simple' => '0.44',
             },
         )
         : ( PREREQ_PM         => {
-                'WWW::Mechanize' => 0,
-                'RPC::ExtDirect' => '1.31',
-                'CGI::ExtDirect' => '1.12',
+                'WWW::Mechanize'       => 0,
+                'RPC::ExtDirect'       => '1.31',
+                'CGI::ExtDirect'       => '1.12',
+                'HTTP::Server::Simple' => '0.44',
             },
         )
     ),
     ABSTRACT => 'CGI-based Ext.Direct server',
-    AUTHOR   => 'Alexander Tokarev <tokarev@cpan.org>',
+    AUTHOR   => 'Alex Tokarev <tokarev@cpan.org>',
     LICENSE  => 'perl',
 
     ($ExtUtils::MakeMaker::VERSION >= 6.46
