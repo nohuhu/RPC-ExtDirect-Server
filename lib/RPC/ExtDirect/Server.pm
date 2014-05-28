@@ -15,6 +15,7 @@ use RPC::ExtDirect::API;
 use RPC::ExtDirect;
 use CGI::ExtDirect;
 
+use HTTP::Server::Simple::CGI;
 use base 'HTTP::Server::Simple::CGI';
 
 #
@@ -440,94 +441,3 @@ sub _handle_extdirect {
 }
 
 1;
-
-__END__
-
-=pod
-
-=head1 NAME
-
-RPC::ExtDirect::Server - CGI-based Ext.Direct server
-
-=head1 SYNOPSIS
-
- use RPC::ExtDirect::Server;
- 
- my $server = RPC::ExtDirect::Server->new(static_dir => 'htdocs');
- my $port   = $server->port;
- 
- print "Ext.Direct server is running on port $port\n";
- 
- $server->run();
-
-=head1 DESCRIPTION
-
-This module implements a minimal Ext.Direct capable server in pure Perl.
-Its main purpose it to be used as lightweight drop-in replacement for
-more complex production environments like Plack or Apache/mod_perl, i.e.
-for testing and mockups. It can also be used as the basis for production
-application servers when feature richness is not a requirement, or when
-resource consumption is of primary concern.
-
-=head1 METHODS
-
-=over 4
-
-=item new(%params)
-
-Create a new server instance with specified parameters:
-
-=over 8
-
-=item host
-
-Hostname or IP address to bind to. Defaults to 127.0.0.1.
-
-=item port
-
-Port to bind to. Defaults to randomly generated in 30000-40000 range.
-
-=item static_dir
-
-Path to directory with static content. This parameter is mandatory.
-
-=back
-
-=item run
-
-Run the server. This method never returns.
-
-=back
-
-=head1 DEPENDENCIES
-
-RPC::ExtDirect::Server depends on the following modules:
-L<CGI::ExtDirect>, L<RPC::ExtDirect>, L<JSON>, L<Attribute::Handlers>.
-
-=head1 SEE ALSO
-
-For more information, see L<CGI::ExtDirect>.
-
-=head1 BUGS AND LIMITATIONS
-
-There are no known bugs in this module. Use github tracker to report bugs
-(the best way) or just drop me an e-mail. Patches are welcome.
-
-=head1 AUTHOR
-
-Alexander Tokarev E<lt>tokarev@cpan.orgE<gt>
-
-=head1 ACKNOWLEDGEMENTS
-
-I would like to thank IntelliSurvey, Inc for sponsoring my work
-on this module.
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (c) 2012 Alexander Tokarev.
-
-This module is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself. See L<perlartistic>.
-
-=cut
-
