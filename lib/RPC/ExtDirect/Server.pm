@@ -87,6 +87,7 @@ sub new {
     my $host       = delete $arg{host}     || '127.0.0.1';
     my $cust_disp  = delete $arg{dispatch} || [];
     my $static_dir = delete $arg{static_dir};
+    my $cgi_class  = delete $arg{cgi_class};
 
     croak __PACKAGE__.": Static directory parameter is required\n"
         unless defined $static_dir;
@@ -103,8 +104,14 @@ sub new {
     my $self = $class->SUPER::new($port);
     
     # Default to CGI::Simple if it's available, unless the user
-    # overrode cgi_class method to do something else
-    if ( $have_cgi_simple && $self->cgi_class eq 'CGI' ) {
+    # overrode cgi_class to do something else
+    if ( $cgi_class ) {
+        $self->cgi_class($cgi_class);
+        $self->cgi_init(sub {
+            eval "require $cgi_class";
+        });
+    }
+    elsif ( $have_cgi_simple && $self->cgi_class eq 'CGI' ) {
         $self->cgi_class('CGI::Simple');
         $self->cgi_init(undef);
     }
