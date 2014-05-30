@@ -5,25 +5,12 @@ WriteMakefile(
     NAME              => 'RPC::ExtDirect::Server',
     VERSION_FROM      => 'lib/RPC/ExtDirect/Server.pm',
 
-    ($ExtUtils::MakeMaker::VERSION >= 6.55
-        ? ( BUILD_REQUIRES => {
-                'WWW::Mechanize' => 0,
-            },
-            PREREQ_PM => {
-                'RPC::ExtDirect'       => '1.31',
-                'CGI::ExtDirect'       => '1.12',
-                'HTTP::Server::Simple' => '0.44',
-            },
-        )
-        : ( PREREQ_PM         => {
-                'WWW::Mechanize'       => 0,
-                'RPC::ExtDirect'       => '1.31',
-                'CGI::ExtDirect'       => '1.12',
-                'HTTP::Server::Simple' => '0.44',
-            },
-        )
-    ),
-    ABSTRACT => 'CGI-based Ext.Direct server',
+    PREREQ_PM         => {
+        'RPC::ExtDirect'       => '3.00',
+        'CGI::ExtDirect'       => '3.00',
+        'HTTP::Server::Simple' => '0.44',
+    },
+    ABSTRACT => 'Prepackaged pure Perl Ext.Direct server',
     AUTHOR   => 'Alex Tokarev <tokarev@cpan.org>',
     LICENSE  => 'perl',
 
