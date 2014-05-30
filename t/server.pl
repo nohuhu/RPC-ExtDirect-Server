@@ -4,15 +4,19 @@
 use strict;
 use warnings;
 
+use Getopt::Std;
 use RPC::ExtDirect::Server;
 
-my $port = shift @ARGV || 30000 + int rand 10000;
+my %options;
+
+getopt('pd', \%options);
 
 my $server = RPC::ExtDirect::Server->new(
-    static_dir => '/tmp',
-    port       => $port,
+    static_dir => $options{d} || '/tmp',
+    port       => $options{p} || 30000 + int rand 10000,
 );
-$port = $server->port;
+
+my $port = $server->port;
 
 print "Listening on port $port\n";
 

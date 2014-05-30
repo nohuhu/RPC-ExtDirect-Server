@@ -17,11 +17,12 @@ our @EXPORT = qw/
 /;
 
 sub get {
-    my ($uri, $arg) = @_;
+    my ($uri, $opt, $arg) = @_;
 
     my $http = HTTP::Tiny->new( max_redirect => 0, %$arg, );
 
-    return $http->get($uri);
+    # HTTP::Tiny is picky about its arguments
+    return $http->get($uri, $opt ? ($opt) : ());
 }
 
 sub post {

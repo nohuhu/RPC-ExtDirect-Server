@@ -4,7 +4,7 @@ use strict;
 use warnings;
 no  warnings 'uninitialized';
 
-use Test::More tests => 9;
+use Test::More tests => 12;
 
 use lib 't/lib';
 use RPC::ExtDirect::Server::Util;
@@ -20,6 +20,32 @@ ok $port, "Got host: $host and port: $port";
 my $resp = get "http://$host:$port/dir";
 
 is_status $resp, 301, 'Got 301';
+
+# These are optional for when HTTP::Date is installed
+SKIP: {
+    eval "require HTTP::Date";
+
+    skip "HTTP::Date not installed", 3 if $@;
+
+    my $mtime = (stat "$static_dir/foo.txt")[9];
+
+    $resp = get "http://$host:$port/foo.txt", {
+        headers => {
+            'If-Modified-Since' => HTTP::Date::time2str($mtime + 1),
+        },
+    };
+
+    is_status $resp, 304, 'Got 304 for If-Modified-Since > mtime';
+
+    $resp = get "http://$host:$port/foo.txt", {
+        headers => {
+            'If-Modified-Since' => HTTP::Date::time2str($mtime - 1),
+        },
+    };
+
+    is_status $resp, 200, 'Got 200 for If-Modified-Since < mtime';
+    is_content $resp, "foo\n", 'Got content for If-Modified-Since < mtime';
+}
 
 # Should get 404
 $resp = get "http://$host:$port/nonexisting/stuff";

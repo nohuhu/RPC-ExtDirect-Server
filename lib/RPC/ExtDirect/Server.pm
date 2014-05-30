@@ -40,6 +40,7 @@ my $have_cgi_simple = eval "require CGI::Simple";
 # from HTTP::Date anyway.
 if ( $have_http_date ) {
     *time2str = *HTTP::Date::time2str;
+    *str2time = *HTTP::Date::str2time;
 }
 else {
     eval <<'END_SUB';
@@ -379,46 +380,6 @@ sub handle_404 {
     $self->logit("Handling 404 for URI $uri");
 
     print $cgi->header(-status => '404 Not Found');
-
-    return 1;
-}
-
-### PUBLIC INSTANCE METHOD ###
-#
-# Return 500 header and message body.
-#
-
-sub handle_500 {
-    my ($self, $cgi, $msg) = @_;
-
-    $self->logit("Handling 500");
-
-    print $cgi->header(
-        -status  => '500 Internal Server Error',
-        -charset => 'utf-8'
-    );
-
-    my $msg_p = $msg ? "<br /><p>Error message: $msg</p>"
-              :        "<br /><p></p>"
-              ;
-
-    print <<"END_HTML";
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Internal Server Error</title>
-</head>
-<body>
-    <p>We're terribly sorry but this server was unable to process
-    your request due to internal error.</p>
-    <p>The error was not caused by your action, it is probably a
-    bug or misconfiguration in the software.</p>
-    <p>If you don't mind helping to fix this error, please tell
-    your system administrator about it.</p>
-    $msg_p
-</body>
-</html>
-END_HTML
 
     return 1;
 }
