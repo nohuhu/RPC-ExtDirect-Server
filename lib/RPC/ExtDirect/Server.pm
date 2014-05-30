@@ -199,7 +199,7 @@ sub handle_default {
     my ($self, $cgi, $path) = @_;
 
     # Lame security measure
-    return $self->handle_403($cgi, $path) if $path =~ m{^\.{1,2}/};
+    return $self->handle_403($cgi, $path) if $path =~ m{^(?:\/)?\.{1,2}/};
 
     my $static = $self->static_dir();
     $static   .= '/' unless $path =~ m{^/};

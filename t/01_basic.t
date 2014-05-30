@@ -4,7 +4,7 @@ use strict;
 use warnings;
 no  warnings 'uninitialized';
 
-use Test::More tests => 12;
+use Test::More tests => 13;
 
 use lib 't/lib';
 use RPC::ExtDirect::Server::Util;
@@ -46,6 +46,11 @@ SKIP: {
     is_status $resp, 200, 'Got 200 for If-Modified-Since < mtime';
     is_content $resp, "foo\n", 'Got content for If-Modified-Since < mtime';
 }
+
+# Should get 403
+$resp = get "http://$host:$port/../../etc/passwd";
+
+is_status $resp, 403, 'Got 403';
 
 # Should get 404
 $resp = get "http://$host:$port/nonexisting/stuff";
