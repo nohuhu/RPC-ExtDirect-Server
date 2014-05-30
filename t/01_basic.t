@@ -11,7 +11,7 @@ use RPC::ExtDirect::Server::Util;
 
 my $static_dir = 't/htdocs';
 
-my ($host, $port) = start_server(static_dir => $static_dir);
+my ($host, $port) = maybe_start_server(static_dir => $static_dir);
 
 ok $port, "Got host: $host and port: $port";
 

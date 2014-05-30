@@ -24,12 +24,7 @@ use WWW::Mechanize;
 use RPC::ExtDirect::Server::Util;
 
 my $static_dir = 't/htdocs';
-my $want_port  = shift @ARGV;
-
-my ($host, $port) = start_server(
-    static_dir => $static_dir,
-    $want_port ? ( port => $want_port ) : (),
-);
+my ($host, $port) = maybe_start_server( static_dir => $static_dir );
 
 ok $port, "Got host: $host and port: $port";
 
