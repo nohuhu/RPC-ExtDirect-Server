@@ -4,10 +4,11 @@ use strict;
 use warnings;
 no  warnings 'uninitialized';
 
-use Test::More tests => 11;
-use WWW::Mechanize;
+use Test::More tests => 9;
 
+use lib 't/lib';
 use RPC::ExtDirect::Server::Util;
+use RPC::ExtDirect::Server::Test::Util;
 
 my $static_dir = 't/htdocs';
 
@@ -15,33 +16,29 @@ my ($host, $port) = maybe_start_server(static_dir => $static_dir);
 
 ok $port, "Got host: $host and port: $port";
 
-my $mech = WWW::Mechanize->new;
+# Should be a redirect from directory to index.html
+my $resp = get "http://$host:$port/dir";
 
-# Avoid following redirects
-$mech->requests_redirectable([]);
-$mech->get("http://$host:$port/dir");
+is_status $resp, 301, 'Got 301';
 
-is $mech->status, 301,      'Got 301';
-ok $mech->res->is_redirect, 'Got redirect';
+# Should get 404
+$resp = get "http://$host:$port/nonexisting/stuff";
 
-eval { $mech->get("http://$host:$port/nonexisting/stuff") };
-is $mech->status, 404,   'Got 404';
-ok $mech->res->is_error, 'Got error';
+is_status $resp, 404, 'Got 404';
 
 # Get a (seemingly) non-text file
+my $want_len = (stat "$static_dir/bar.png")[7];
 
-my $expected_len = (stat "$static_dir/bar.png")[7];
+$resp = get "http://$host:$port/bar.png";
 
-$mech->get("http://$host:$port/bar.png");
-is $mech->status,    200,          'Got status';
-like $mech->content, qr/foo/,      'Got content';
-is $mech->ct,        'image/png',  'Got content type';
-
-my $actual_len = $mech->res->header('Content-Length');
-is $actual_len, $expected_len, 'Got content length';
+is_status    $resp, 200,                           'Img got status';
+like_content $resp, qr/foo/,                       'Img got content';
+is_header    $resp, 'Content-Type',   'image/png', 'Img got content type';
+is_header    $resp, 'Content-Length', $want_len,   'Img got content length';
 
 # Now get text file and check the type
-$mech->get("http://$host:$port/foo.txt");
-is $mech->status, 200,          'Got status';
-is $mech->ct,     'text/plain', 'Got content type';
+$resp = get "http://$host:$port/foo.txt";
+
+is_status   $resp, 200,                              'Text got status';
+like_header $resp, 'Content-Type', qr/^text\/plain/, 'Text got content type';
 

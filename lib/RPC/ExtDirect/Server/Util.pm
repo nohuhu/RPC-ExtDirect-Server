@@ -7,6 +7,7 @@ no  warnings 'uninitialized';   ## no critic
 use Carp;
 use Socket;
 use Getopt::Std;
+use Exporter;
 
 use RPC::ExtDirect::Server;
 
