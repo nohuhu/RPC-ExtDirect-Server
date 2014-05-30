@@ -68,18 +68,6 @@ else {
 END_SUB
 }
 
-# Use CGI::Simple automatically if it's available
-if ( $have_cgi_simple ) {
-    $HTTP::Server::Simple::CGI::DEFAULT_CGI_CLASS = 'CGI::Simple';
-    $HTTP::Server::Simple::CGI::DEFAULT_CGI_INIT  = undef;
-}
-
-# Starting with perl-5.22, CGI.pm will be removed from the core
-else {
-    eval "require CGI"
-        or croak "Neither CGI::Simple nor CGI.pm are present";
-}
-
 my %DEFAULTS = (
     index_file    => 'index.html',
     expires_after => 259200, # 3 days in seconds
@@ -113,6 +101,13 @@ sub new {
     $config->set_options(%arg);
 
     my $self = $class->SUPER::new($port);
+    
+    # Default to CGI::Simple if it's available, unless the user
+    # overrode cgi_class method to do something else
+    if ( $have_cgi_simple && $self->cgi_class eq 'CGI' ) {
+        $self->cgi_class('CGI::Simple');
+        $self->cgi_init(undef);
+    }
 
     $self->api($api);
     $self->config($config);
