@@ -15,13 +15,6 @@ use CGI::ExtDirect;
 use HTTP::Server::Simple::CGI;
 use base 'HTTP::Server::Simple::CGI';
 
-#
-# This module is not compatible with RPC::ExtDirect < 3.0
-#
-
-die __PACKAGE__." requires RPC::ExtDirect 3.0+"
-    if $RPC::ExtDirect::VERSION lt '3.0';
-
 ### PACKAGE GLOBAL VARIABLE ###
 #
 # Version of this module.
@@ -31,8 +24,13 @@ our $VERSION = '1.00';
 
 # We're trying hard not to depend on any non-core modules,
 # but there's no reason not to use them if they're available
-my $have_http_date  = eval "require HTTP::Date";
-my $have_cgi_simple = eval "require CGI::Simple";
+my ($have_http_date, $have_cgi_simple);
+
+{
+    local $@;
+    $have_http_date  = eval "require HTTP::Date";
+    $have_cgi_simple = eval "require CGI::Simple";
+}
 
 # We assume that HTTP::Date::time2str is better maintained,
 # so use it if we can. If HTTP::Date is not installed,
@@ -138,8 +136,8 @@ sub new {
     while ( my $uri = shift @$cust_disp ) {
         $self->logit("Installing custom handler for URI: $uri");
         push @dispatch, {
-            match => ((ref($uri) eq 'Regexp') ? $uri : qr{$uri}),
-            code => shift @$cust_disp
+            match => qr{$uri},
+            code  => shift @$cust_disp,
         };
     };
     
@@ -553,8 +551,13 @@ my %MIME_TYPES = (
 {
     local $@;
     
-    my $have_libmagic = eval "require File::LibMagic";
-    my $have_mimeinfo = eval "require File::MimeInfo";
+    my $have_libmagic = $ENV{DEBUG_NO_FILE_LIBMAGIC}
+                      ? !1
+                      : eval "require File::LibMagic";
+    
+    my $have_mimeinfo = $ENV{DEBUG_NO_FILE_MIMEINFO}
+                      ? !1
+                      : eval "require File::MimeInfo";
     
     sub _guess_mime_type {
         my ($self, $file_name) = @_;
@@ -569,6 +572,7 @@ my %MIME_TYPES = (
         }
         elsif ( $have_mimeinfo ) {
             my $mimeinfo = File::MimeInfo->new();
+            $DB::single = 1;
             $type = $mimeinfo->mimetype($file_name);
         }
         

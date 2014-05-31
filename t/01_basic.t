@@ -10,6 +10,8 @@ use lib 't/lib';
 use RPC::ExtDirect::Server::Util;
 use RPC::ExtDirect::Server::Test::Util;
 
+my $have_libmagic = do { local $@; eval "require File::LibMagic" };
+
 my $static_dir = 't/htdocs';
 
 my ($host, $port) = maybe_start_server(static_dir => $static_dir);
@@ -64,7 +66,15 @@ $resp = get "http://$host:$port/bar.png";
 
 is_status    $resp, 200,                           'Img got status';
 like_content $resp, qr/foo/,                       'Img got content';
-is_header    $resp, 'Content-Type',   'image/png', 'Img got content type';
+
+# File::LibMagic looks beyond file extension and detects correct MIME type
+if ( $have_libmagic ) {
+    like_header $resp, 'Content-Type', qr{text/plain}, 'Img got content type';
+}
+else {
+    is_header $resp, 'Content-Type', 'image/png', 'Img got content type';
+}
+
 is_header    $resp, 'Content-Length', $want_len,   'Img got content length';
 
 # Now get text file and check the type
