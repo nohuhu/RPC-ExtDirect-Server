@@ -177,7 +177,7 @@ sub handle_request {
     
     my $debug = $self->config->debug;
     
-    $self->logit("Handling request: $path_info");
+    $self->logit("Handling request: $path_info") if $debug;
     
     $cgi->nph(1);
     
@@ -189,7 +189,7 @@ sub handle_request {
         
         next HANDLER unless $path_info =~ $match;
         
-        $self->logit("Got specific handler with match '$match'");
+        $self->logit("Got specific handler with match '$match'") if $debug;
         
         my $code = $handler->{code};
         
@@ -198,7 +198,7 @@ sub handle_request {
         return $code->($self, $cgi);
     }
 
-    $self->logit("No specific handlers found, serving default");
+    $self->logit("No specific handlers found, serving default") if $debug;
     
     return $self->handle_default($cgi, $path_info);
 }
