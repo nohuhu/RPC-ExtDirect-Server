@@ -135,9 +135,11 @@ sub new {
     # Format:
     # [ qr{URI} => \&method, ... ]
     # [ { match => qr{URI}, code => \&method, } ]
-    for my $uri ( @$cust_disp ) {
+    while ( my $uri = shift @$cust_disp ) {
+        $self->logit("Installing custom handler for URI: $uri");
         push @dispatch, {
-            match => qr/^\Q$uri\E/, code => shift @$cust_disp
+            match => ((ref($uri) eq 'Regexp') ? $uri : qr{$uri}),
+            code => shift @$cust_disp
         };
     };
     
@@ -149,7 +151,7 @@ sub new {
         
         if ( $uri ) {
             push @dispatch, {
-                match => qr/^\Q$uri\E/, code => \&{ $handler },
+                match => qr/^\Q$uri\E$/, code => \&{ $handler },
             }
         }
     }
@@ -173,6 +175,8 @@ sub handle_request {
     
     my $path_info = $cgi->path_info();
     
+    my $debug = $self->config->debug;
+    
     $self->logit("Handling request: $path_info");
     
     $cgi->nph(1);
@@ -180,6 +184,8 @@ sub handle_request {
     HANDLER:
     for my $handler ( @{ $self->dispatch } ) {
         my $match = $handler->{match};
+        
+        $self->logit("Matching '$path_info' against $match") if $debug;
         
         next HANDLER unless $path_info =~ $match;
         
@@ -394,7 +400,7 @@ sub handle_404 {
 sub logit {
     my $self = shift;
     
-    print STDERR @_ if $self->config->debug;
+    print STDERR @_, "\n" if $self->config->debug;
 }
 
 ### PUBLIC PACKAGE SUBROUTINE ###
