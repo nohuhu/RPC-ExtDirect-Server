@@ -45,14 +45,20 @@ our @EXPORT = qw/
 
 sub maybe_start_server {
     if ( @ARGV ) {
-        my %options;
+        my %opt;
         
-        getopt('hp', \%options);
+        getopts('h:p:fes:t:', \%opt);
         
         # If a port is given but not the host name, we assume localhost
-        $options{h} ||= '127.0.0.1';
+        $opt{h} ||= '127.0.0.1';
         
-        return ($options{h}, $options{p}) if $options{p};
+        return ($opt{h}, $opt{p}) if $opt{p};
+        
+        # Not quoting $opt{s} makes my text editor lose its mind ;)
+        push @_, static_dir => $opt{'s'} if $opt{'s'};
+        push @_, foreground => 1         if $opt{f};
+        push @_, enbugger   => 1         if $opt{e};
+        push @_, set_timer  => $opt{t}   if defined $opt{t};    
     }
     
     return start_server( @_ );
@@ -67,7 +73,7 @@ sub maybe_start_server {
 #
 
 sub start_server {
-    my (%params) = @_;
+    my (%arg) = @_;
     
     {
         my $host = get_server_host;
@@ -81,15 +87,46 @@ sub start_server {
     }
     
     # This parameter is used for internal testing
-    my $sleep        = delete $params{sleep};
-    my $timeout      = delete $params{timeout}      || 30;
-    my $server_class = delete $params{server_class} ||
-                       'RPC::ExtDirect::Server';
+    my $sleep      = delete $arg{sleep};
+    my $foreground = delete $arg{foreground};
+    my $enbugger   = delete $arg{enbugger};
+    my $set_timer  = delete $arg{set_timer};
+    my $timeout    = delete $arg{timeout} || 30;
     
     # We default to verbose exceptions, which is against Ext.Direct spec
     # but feels somewhat saner and is better for testing
-    $params{verbose_exceptions} = 1
-        unless defined $params{verbose_exceptions};
+    $arg{verbose_exceptions} = 1 unless defined $arg{verbose_exceptions};
+    
+    if ( $enbugger ) {
+        local $@;
+        eval "require Enbugger";
+    }
+    
+    # Interactive start means we're not forking but running the server
+    # in the current process. Useful for Enbugging.
+    if ( $foreground ) {
+        if ( $set_timer ) {
+            $SIG{ALRM} = sub { Enbugger->stop; };
+            
+            alarm $set_timer;
+        }
+        
+        do_start_server(
+            %arg,
+            
+            after_listener => sub {
+                my ($self) = @_;
+                
+                my $host = $self->host;
+                my $port = $self->port;
+                
+                print ref($self)." is listening on $host:$port\n";
+            }
+        );
+        
+        # This should be unreachable, but just in case
+        exit 0;
+    }
 
     my ($pid, $pipe_rd, $pipe_wr);
     pipe($pipe_rd, $pipe_wr) or die "Can't open pipe: $!";
@@ -116,7 +153,7 @@ sub start_server {
             eval { kill 2, $pid };
             
             croak $err eq "alarm\n" ? "Timed out waiting for " .
-                                      "$server_class instance to start " .
+                                      "the server instance to start " .
                                       "after $timeout seconds"
                 :                     $err
                 ;
@@ -136,44 +173,29 @@ sub start_server {
         srand;
         
         sleep $sleep if $sleep;
-
-        my $forced_port = defined $params{port};
-
-        if ( !$forced_port ) {
-           $params{port} = &random_port;
-        }
-
-        my $server = $server_class->new(%params);
         
-        {
-            my $after_setup_listener
-                = $server_class->can('after_setup_listener');
+        do_start_server(
+            %arg,
             
-            no strict 'refs';
-            *{$server_class.'::after_setup_listener'} = sub {
+            # TODO This is a dirty hack - find a better way of
+            # injecting after_setup_listener. Maybe send a patch
+            # to HTTP::Server::Simple maintainer to make this easier?
+            after_listener => sub {
                 my $self = shift;
-                
+        
                 my $host = inet_ntoa inet_aton $self->host;
                 my $port = $self->port;
 
                 print $pipe_wr "$host:$port\n";
                 close $pipe_wr;
                 
+                my $after_setup_listener
+                    = $self->{_old_after_setup_listener};
+        
                 $after_setup_listener->($self, @_)
                     if $after_setup_listener;
-            };
-        }
-
-        # If the port is taken, reroll the random generator and try again
-        do {
-            eval { $server->run() };
-
-            # If the port was forced by the caller, punt
-            die "$@\n" if $forced_port && $@;
-
-            $server->port(&random_port);
-        }
-        while ( $@ );
+            }
+        );
 
         # Should be unreachable, just in case
         exit 0;
@@ -200,6 +222,53 @@ sub stop_server {
     set_server_port(undef);
     set_server_pid(undef);
 }
+
+### PRIVATE PACKAGE SUBROUTINE ###
+#
+# Try to start the server, re-rolling port randomizer
+# if the old port is taken
+#
+
+sub do_start_server {
+    my (%arg) = @_;
+    
+    my $forced_port    = defined $arg{port};
+    my $after_listener = delete $arg{after_listener};
+    my $server_class   = delete $arg{server_class} ||
+                                'RPC::ExtDirect::Server';
+
+    if ( !$forced_port ) {
+       $arg{port} = random_port();
+    }
+
+    my $server = $server_class->new(%arg);
+    
+    if ( $after_listener ) {
+        $server->{_old_after_setup_listener}
+            = $server_class->can('after_setup_listener');
+
+        no strict 'refs';
+        *{$server_class.'::after_setup_listener'} = $after_listener;
+    }
+
+    # If the port is taken, reroll the random generator and try again
+    do {
+        eval { $server->run() };
+
+        # If the port was forced by the caller, punt
+        die "$@\n" if $forced_port && $@;
+
+        $server->port( random_port() );
+    }
+    while ( $@ );
+    
+    return 1; # This should be unreachable
+}
+
+### PRIVATE PACKAGE SUBROUTINE ###
+#
+# Generate a random port for the server to listen on
+#
 
 sub random_port { 30000 + int rand 10000 };
 

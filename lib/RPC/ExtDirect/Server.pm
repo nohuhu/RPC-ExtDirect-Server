@@ -572,7 +572,6 @@ my %MIME_TYPES = (
         }
         elsif ( $have_mimeinfo ) {
             my $mimeinfo = File::MimeInfo->new();
-            $DB::single = 1;
             $type = $mimeinfo->mimetype($file_name);
         }
         
