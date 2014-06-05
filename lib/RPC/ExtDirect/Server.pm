@@ -80,44 +80,26 @@ my %DEFAULTS = (
 sub new {
     my ($class, %arg) = @_;
 
-    my $api        = delete $arg{api}      || RPC::ExtDirect->get_api();
-    my $config     = delete $arg{config}   || $api->config;
-    my $host       = delete $arg{host}     || '127.0.0.1';
-    my $cust_disp  = delete $arg{dispatch} || [];
-    my $static_dir = delete $arg{static_dir};
+    my $api        = delete $arg{api}        || RPC::ExtDirect->get_api();
+    my $config     = delete $arg{config}     || $api->config;
+    my $host       = delete $arg{host}       || '127.0.0.1';
+    my $port       = delete $arg{port}       || 8080;
+    my $cust_disp  = delete $arg{dispatch}   || [];
+    my $static_dir = delete $arg{static_dir} || '/tmp';
     my $cgi_class  = delete $arg{cgi_class};
-
-    croak __PACKAGE__.": Static directory parameter is required\n"
-        unless defined $static_dir;
-    
-    # We used to generate a random port here, but now just require the caller
-    # to do that if they wish
-    my $port = delete $arg{port};
-    
-    croak __PACKAGE__.": Port parameter is required\n"
-        unless $port;
 
     $config->set_options(%arg);
 
     my $self = $class->SUPER::new($port);
     
-    # Default to CGI::Simple if it's available, unless the user
-    # overrode cgi_class to do something else
-    if ( $cgi_class ) {
-        $self->cgi_class($cgi_class);
-        $self->cgi_init(sub {
-            eval "require $cgi_class";
-        });
-    }
-    elsif ( $have_cgi_simple && $self->cgi_class eq 'CGI' ) {
-        $self->cgi_class('CGI::Simple');
-        $self->cgi_init(undef);
-    }
-
+    $self->_init_cgi_class($cgi_class);
+    
     $self->api($api);
     $self->config($config);
     $self->host($host);
+
     $self->static_dir($static_dir);
+    $self->logit("Using static directory ". $self->static_dir);
     
     while ( my ($k, $v) = each %DEFAULTS ) {
         my $value = exists $arg{ $k } ? delete $arg{ $k } : $v;
@@ -125,39 +107,8 @@ sub new {
         $self->$k($value);
     }
 
-    $self->logit("New HTTPServer with port $port on $host");
+    $self->_init_dispatch($cust_disp);
     
-    my @dispatch;
-
-    # Set the custom handlers so they would come first served.
-    # Format:
-    # [ qr{URI} => \&method, ... ]
-    # [ { match => qr{URI}, code => \&method, } ]
-    while ( my $uri = shift @$cust_disp ) {
-        $self->logit("Installing custom handler for URI: $uri");
-        push @dispatch, {
-            match => qr{$uri},
-            code  => shift @$cust_disp,
-        };
-    };
-    
-    # The default Ext.Direct handlers always come last
-    for my $type ( qw/ api router poll / ) {
-        my $uri_getter = "${type}_path";
-        my $handler    = "handle_extdirect_${type}";
-        my $uri        = $config->$uri_getter;
-        
-        if ( $uri ) {
-            push @dispatch, {
-                match => qr/^\Q$uri\E$/, code => \&{ $handler },
-            }
-        }
-    }
-
-    $self->dispatch(\@dispatch);
-
-    $self->logit("Using static directory ". $self->static_dir);
-
     return bless $self, $class;
 }
 
@@ -221,27 +172,14 @@ sub handle_default {
     my $file_readable = -r $file_name;
 
     if ( -d $file_name ) {
-
-        # Directory requested, redirecting to index.html
-        $path =~ s{/+$}{};
-        
-        my $index_file = $self->index_file;
-
-        $self->logit("Got directory, redirecting to $path/$index_file");
-
-        print $cgi->redirect(
-            -uri    => "$path/$index_file",
-            -status => '301 Moved Permanently'
-        );
+        $self->logit("Got directory request");
+        return $self->handle_directory($cgi, $path);
     }
     elsif ( $file_exists && !$file_readable ) {
-        
         $self->logit("File exists but no permissions to read it (403)");
         return $self->handle_403($cgi, $path);
     }
     elsif ( $file_exists && $file_readable ) {
-
-        # Got readable file, serving it as static content
         $self->logit("Got readable file, serving as static content");
         return $self->handle_static(
             cgi       => $cgi,
@@ -252,6 +190,30 @@ sub handle_default {
         return $self->handle_404($cgi, $path);
     };
 
+    return 1;
+}
+
+### PUBLIC INSTANCE METHOD ###
+#
+# Handle directory request. Usually results in a redirect
+# but can be overridden to do something fancier.
+#
+
+sub handle_directory {
+    my ($self, $cgi, $path) = @_;
+    
+    # Directory requested, redirecting to index.html
+    $path =~ s{/+$}{};
+    
+    my $index_file = $self->index_file;
+    
+    $self->logit("Redirecting to $path/$index_file");
+
+    print $cgi->redirect(
+        -uri    => "$path/$index_file",
+        -status => '301 Moved Permanently'
+    );
+    
     return 1;
 }
 
@@ -275,7 +237,7 @@ sub handle_static {
     
     $self->logit("Got MIME type $type");
     
-    # We're only processing If-Modified-Since if HTTP::Date is installed
+    # We're only processing If-Modified-Since if HTTP::Date is installed.
     # That's because str2time is not trivial and there's no point in
     # copying that much code. The feature is not worth it.
     if ( $have_http_date ) {
@@ -304,7 +266,7 @@ sub handle_static {
         -type => $type,
         -status => '200 OK',
         -charset => ($charset || ($type !~ /image|octet/ ? 'utf-8' : '')),
-        -Expires => time2str(time + $expires),
+        ( $expires ? ( -Expires => time2str(time + $expires) ) : () ),
         -Content_Length => $fsize,
         -Last_Modified => time2str($fmtime)
     );
@@ -472,6 +434,81 @@ sub parse_headers {
     };
 
     return \@headers;
+}
+
+### PRIVATE INSTANCE METHOD ###
+#
+# Initialize CGI class. Used by constructor.
+#
+
+sub _init_cgi_class {
+    my ($self, $cgi_class) = @_;
+    
+    # Default to CGI::Simple if it's available, unless the user
+    # overrode cgi_class to do something else
+    if ( $cgi_class ) {
+        $self->cgi_class($cgi_class);
+        
+        if ( $cgi_class eq 'CGI' ) {
+            $self->cgi_init(sub {
+                local $@;
+                
+                eval {
+                    require CGI;
+                    CGI::initialize_globals();
+                }
+            });
+        }
+        else {
+            $self->cgi_init(sub {
+                eval "require $cgi_class";
+            });
+        }
+    }
+    elsif ( $have_cgi_simple && $self->cgi_class eq 'CGI' ) {
+        $self->cgi_class('CGI::Simple');
+        $self->cgi_init(undef);
+    }
+}
+
+### PRIVATE INSTANCE METHOD ###
+#
+# Initialize dispatch table. Used by constructor.
+#
+
+sub _init_dispatch {
+    my ($self, $cust_disp) = @_;
+    
+    my $config = $self->config;
+    
+    my @dispatch;
+
+    # Set the custom handlers so they would come first served.
+    # Format:
+    # [ qr{URI} => \&method, ... ]
+    # [ { match => qr{URI}, code => \&method, } ]
+    while ( my $uri = shift @$cust_disp ) {
+        $self->logit("Installing custom handler for URI: $uri");
+        push @dispatch, {
+            match => qr{$uri},
+            code  => shift @$cust_disp,
+        };
+    };
+    
+    # The default Ext.Direct handlers always come last
+    for my $type ( qw/ api router poll / ) {
+        my $uri_getter = "${type}_path";
+        my $handler    = "handle_extdirect_${type}";
+        my $uri        = $config->$uri_getter;
+        
+        if ( $uri ) {
+            push @dispatch, {
+                match => qr/^\Q$uri\E$/, code => \&{ $handler },
+            }
+        }
+    }
+
+    $self->dispatch(\@dispatch);
 }
 
 ### PRIVATE INSTANCE METHOD ###
