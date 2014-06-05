@@ -25,7 +25,7 @@ our @EXPORT = qw/
 #
 
 {
-    my ($server_pid, $server_host, $server_port);
+    my ($server_pid, $server_host, $server_port, $dont_stop);
     
     sub get_server_pid { $server_pid };
     sub set_server_pid { $server_pid = shift; };
@@ -35,6 +35,9 @@ our @EXPORT = qw/
     
     sub get_server_port { $server_port };
     sub set_server_port { $server_port = shift; };
+    
+    sub get_no_shutdown { $dont_stop };
+    sub no_shutdown     { $dont_stop = shift; };
 }
 
 ### EXPORTED PUBLIC PACKAGE SUBROUTINE ###
@@ -47,18 +50,25 @@ sub maybe_start_server {
     if ( @ARGV ) {
         my %opt;
         
-        getopts('h:p:fes:t:', \%opt);
+        getopts('h:p:fes:t:l:', \%opt);
         
-        # If a port is given but not the host name, we assume localhost
-        $opt{h} ||= '127.0.0.1';
+        if ( $opt{p} ) {
         
-        return ($opt{h}, $opt{p}) if $opt{p};
+            # If a port is given but not the host name,
+            # we assume localhost
+            my $host = $opt{h} || '127.0.0.1';
+            my $port = $opt{p};
+            
+            return wantarray ? ($host, $port) : "$host:$port";
+        }
         
         # Not quoting $opt{s} makes my text editor lose its mind ;)
-        push @_, static_dir => $opt{'s'} if $opt{'s'};
-        push @_, foreground => 1         if $opt{f};
-        push @_, enbugger   => 1         if $opt{e};
-        push @_, set_timer  => $opt{t}   if defined $opt{t};    
+        push @_, static_dir     => $opt{'s'} if $opt{'s'};
+        push @_, foreground     => 1         if $opt{f};
+        push @_, enbugger       => 1         if $opt{e};
+        push @_, enbugger_timer => $opt{t}   if defined $opt{t};    
+        push @_, host           => $opt{h}   if defined $opt{h};
+        push @_, port           => $opt{l}   if defined $opt{l};
     }
     
     return start_server( @_ );
@@ -80,18 +90,19 @@ sub start_server {
         my $port = get_server_port;
         
         if ( $port ) {
-            return wantarray ? ($host, $port)
-                 :             "$host:$port"
-                 ;
+            return wantarray ? ($host, $port) : "$host:$port";
         }
     }
     
     # This parameter is used for internal testing
-    my $sleep      = delete $arg{sleep};
-    my $foreground = delete $arg{foreground};
-    my $enbugger   = delete $arg{enbugger};
-    my $set_timer  = delete $arg{set_timer};
-    my $timeout    = delete $arg{timeout} || 30;
+    my $sleep          = delete $arg{sleep};
+    my $foreground     = delete $arg{foreground};
+    my $enbugger       = delete $arg{enbugger};
+    my $enbugger_timer = delete $arg{set_timer};
+    my $timeout        = delete $arg{timeout} || 30;
+    
+    # Debug flag is checked below to avoid printing the banner
+    my $server_debug = $arg{config} ? $arg{config}->debug : $arg{debug};
     
     # We default to verbose exceptions, which is against Ext.Direct spec
     # but feels somewhat saner and is better for testing
@@ -105,10 +116,16 @@ sub start_server {
     # Interactive start means we're not forking but running the server
     # in the current process. Useful for Enbugging.
     if ( $foreground ) {
-        if ( $set_timer ) {
-            $SIG{ALRM} = sub { Enbugger->stop; };
+        if ( $enbugger_timer ) {
+            my $old_alarm = $SIG{ALRM};
             
-            alarm $set_timer;
+            $SIG{ALRM} = sub {
+                alarm 0;
+                $SIG{ALRM} = $old_alarm;
+                Enbugger->stop;
+            };
+            
+            alarm $enbugger_timer;
         }
         
         do_start_server(
@@ -120,7 +137,8 @@ sub start_server {
                 my $host = $self->host;
                 my $port = $self->port;
                 
-                print ref($self)." is listening on $host:$port\n";
+                print ref($self)." is listening on $host:$port\n"
+                    unless $server_debug;
             }
         );
         
@@ -177,9 +195,6 @@ sub start_server {
         do_start_server(
             %arg,
             
-            # TODO This is a dirty hack - find a better way of
-            # injecting after_setup_listener. Maybe send a patch
-            # to HTTP::Server::Simple maintainer to make this easier?
             after_listener => sub {
                 my $self = shift;
         
@@ -223,6 +238,8 @@ sub stop_server {
     set_server_pid(undef);
 }
 
+############## PRIVATE METHODS BELOW ##############
+
 ### PRIVATE PACKAGE SUBROUTINE ###
 #
 # Try to start the server, re-rolling port randomizer
@@ -243,6 +260,9 @@ sub do_start_server {
 
     my $server = $server_class->new(%arg);
     
+    # TODO This is a dirty hack - find a better way of
+    # injecting after_setup_listener. Maybe send a patch
+    # to HTTP::Server::Simple maintainer to make this easier?
     if ( $after_listener ) {
         $server->{_old_after_setup_listener}
             = $server_class->can('after_setup_listener');
@@ -256,7 +276,7 @@ sub do_start_server {
         eval { $server->run() };
 
         # If the port was forced by the caller, punt
-        die "$@\n" if $forced_port && $@;
+        croak "$@\n" if $forced_port && $@;
 
         $server->port( random_port() );
     }
@@ -273,6 +293,6 @@ sub do_start_server {
 sub random_port { 30000 + int rand 10000 };
 
 # Ensure that the server is stopped cleanly at exit
-END { stop_server }
+END { stop_server unless get_no_shutdown }
 
 1;
