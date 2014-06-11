@@ -45,9 +45,19 @@ my $resp = post $router_uri, { content => $req };
 is_status $resp, 200, "CGI req status";
 
 my $have = $resp->{content};
-my $want = q|{"result":true,"type":"rpc","action":"test",|.
-        q|"method":"cgi","tid":3}|;
+my ($want, $desc);
 
-cmp_json $have, $want, "CGI req content"
-    or diag explain "Response:", $resp;
+# If CGI::Simple <= 1.113 is installed, the Server should not use it
+if ( $CGI::Simple::VERSION > 1.113 ) {
+    $desc = "CGI req status true, CGI::Simple = $CGI::Simple::VERSION";
+    $want = q|{"result":true,"type":"rpc","action":"test",|.
+            q|"method":"cgi","tid":3}|;
+}
+else {
+    $desc = "CGI req status false, CGI::Simple = $CGI::Simple::VERSION";
+    $want = q|{"result":false,"type":"rpc","action":"test",|.
+            q|"method":"cgi","tid":3}|;
+}
+
+cmp_json $have, $want, $desc or diag explain "Response:", $resp;
 

@@ -444,8 +444,10 @@ sub parse_headers {
 sub _init_cgi_class {
     my ($self, $cgi_class) = @_;
     
-    # Default to CGI::Simple if it's available, unless the user
-    # overrode cgi_class to do something else
+    # Default to CGI::Simple > 1.113 if it's available, unless the user
+    # overrode cgi_class to do something else. CGI::Simple 1.113 and
+    # earlier has a bug with form/multipart file upload handling, so
+    # we don't use it even if it is installed.
     if ( $cgi_class ) {
         $self->cgi_class($cgi_class);
         
@@ -465,7 +467,9 @@ sub _init_cgi_class {
             });
         }
     }
-    elsif ( $have_cgi_simple && $self->cgi_class eq 'CGI' ) {
+    elsif ( $have_cgi_simple && $CGI::Simple::VERSION > 1.113 &&
+            $self->cgi_class eq 'CGI' )
+    {
         $self->cgi_class('CGI::Simple');
         $self->cgi_init(undef);
     }
