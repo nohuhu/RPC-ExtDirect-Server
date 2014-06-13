@@ -1,3 +1,12 @@
+1.00  Thu Jun 12 21:32:00 2014
+    - Updated to accommodate for the changes in RPC::ExtDirect 3.0 and
+      CGI::ExtDirect 3.0
+    - maybe_start_server for @ARGV handling, and other helpful stuff
+    - Many bug fixes and improvements
+    - Tons of documentation added
+    - More tests that use HTTP::Tiny now instead of WWW::Mechanize
+    - Most of the dependencies made optional
+
 0.01  Wed Jun 20 10:42:25 2012
 	- original version; code works and tests pass but lacks documentation
 
