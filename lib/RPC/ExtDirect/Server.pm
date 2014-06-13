@@ -208,8 +208,10 @@ sub handle_directory {
     my $index_file = $self->index_file;
     
     $self->logit("Redirecting to $path/$index_file");
+    
+    my $out = $self->stdio_handle;
 
-    print $cgi->redirect(
+    print $out $cgi->redirect(
         -uri    => "$path/$index_file",
         -status => '301 Moved Permanently'
     );
@@ -237,6 +239,8 @@ sub handle_static {
     
     $self->logit("Got MIME type $type");
     
+    my $out = $self->stdio_handle;
+    
     # We're only processing If-Modified-Since if HTTP::Date is installed.
     # That's because str2time is not trivial and there's no point in
     # copying that much code. The feature is not worth it.
@@ -245,13 +249,16 @@ sub handle_static {
     
         if ( $ims && $fmtime <= str2time($ims) ) {
             $self->logit("File has not changed, serving 304");
-            print $cgi->header(-type => $type, -status => '304 Not Modified');
+            print $out $cgi->header(
+                -type   => $type,
+                -status => '304 Not Modified',
+            );
         
             return 1;
         };
     }
-
-    my ($in, $out, $rd, $buf);
+    
+    my ($in, $buf);
 
     if ( not open $in, '<', $file_name ) {
         $self->logit("File is unreadable, serving 403");
@@ -262,23 +269,28 @@ sub handle_static {
     
     my $expires = $self->expires_after;
 
-    print $cgi->header(
-        -type => $type,
-        -status => '200 OK',
+    print $out $cgi->header(
+        -type    => $type,
+        -status  => '200 OK',
         -charset => ($charset || ($type !~ /image|octet/ ? 'utf-8' : '')),
         ( $expires ? ( -Expires => time2str(time + $expires) ) : () ),
         -Content_Length => $fsize,
-        -Last_Modified => time2str($fmtime)
+        -Last_Modified  => time2str($fmtime),
     );
 
     my $bufsize = $self->buffer_size;
     
     binmode $in;
-
-    $out = select;
     binmode $out;
+    
+    # Making the out handle hot helps in older Perls
+    {
+        my $orig_fh = select $out;
+        $| = 1;
+        select $orig_fh;
+    }
 
-    syswrite $out, $buf, $rd while $rd = sysread $in, $buf, $bufsize;
+    print $out $buf while sysread $in, $buf, $bufsize;
 
     return 1;
 }
@@ -332,7 +344,9 @@ sub handle_403 {
     
     $self->logit("Handling 403 for URI $uri");
     
-    print $cgi->header(-status => '403 Forbidden');
+    my $out = $self->stdio_handle;
+    
+    print $out $cgi->header(-status => '403 Forbidden');
     
     return 1;
 }
@@ -346,8 +360,10 @@ sub handle_404 {
     my ($self, $cgi, $uri) = @_;
 
     $self->logit("Handling 404 for URI $uri");
+    
+    my $out = $self->stdio_handle;
 
-    print $cgi->header(-status => '404 Not Found');
+    print $out $cgi->header(-status => '404 Not Found');
 
     return 1;
 }
@@ -408,29 +424,36 @@ RPC::ExtDirect::Util::Accessor->mk_accessors(
 #
 
 sub parse_request {
-    local $_ = <STDIN>;
+    my $self = shift;
 
-    return unless defined $_;
+    my $io_handle = $self->stdio_handle;
+    my $input     = <$io_handle>;
 
-    /^(\w+)\s+(\S+)(?:\s+(\S+))?\r?$/ and
+    return unless $input;
+
+    $input =~ /^(\w+)\s+(\S+)(?:\s+(\S+))?\r?$/ and
         return ( $1.'', $2.'', $3.'' );
 }
 
 ### PRIVATE INSTANCE METHOD ###
 #
-# Parse incoming HTTP headers from STDIN and return arrayref of
-# header/value pairs.
+# Parse incoming HTTP headers from input file handle and return
+# an arrayref of header/value pairs.
 #
 
 sub parse_headers {
+    my $self = shift;
+
+    my $io_handle = $self->stdio_handle;
+
     my @headers;
 
-    while ( <STDIN> ) {
-        s/[\r\l\n\s]+$//;
-        last if /^$/;
+    while ( my $input = <$io_handle> ) {
+        $input =~ s/[\r\l\n\s]+$//;
+        last if !$input;
 
         push @headers, $1 => $2
-            if /^([^()<>\@,;:\\"\/\[\]?={} \t]+):\s*(.*)/i;
+            if $input =~ /^([^()<>\@,;:\\"\/\[\]?={} \t]+):\s*(.*)/i;
     };
 
     return \@headers;
@@ -531,8 +554,10 @@ sub _handle_extdirect {
 
     # Standard CGI headers for this handler
     my %std_cgi = ( '-nph' => 1, '-charset' => 'utf-8' );
+    
+    my $out = $self->stdio_handle;
 
-    print $exd->$what( %std_cgi );
+    print $out $exd->$what( %std_cgi );
 
     return 1;
 }
