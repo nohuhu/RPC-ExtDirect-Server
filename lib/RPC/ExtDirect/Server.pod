@@ -687,7 +687,7 @@ on this module.
 
 =head1 BUGS AND LIMITATIONS
 
-At this time There are no known bugs in this module. Please report
+At this time there are no known bugs in this module. Please report
 problems to the author, patches are always welcome.
 
 Use L<Github tracker|https://github.com/nohuhu/RPC-ExtDirect-Server/issues>
