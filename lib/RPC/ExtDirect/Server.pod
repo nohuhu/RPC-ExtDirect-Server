@@ -484,7 +484,7 @@ default L<global API tree|RPC::ExtDirect::API/"GLOBAL API TREE INSTANCE">.
 
 =item C<config>
 
-Optional <LRPC::ExtDirect::Config> instance to be used. If not provided,
+Optional L<RPC::ExtDirect::Config> instance to be used. If not provided,
 the Config instance in the API object (either default or passed in L</api>
 parameter) will be used.
 
