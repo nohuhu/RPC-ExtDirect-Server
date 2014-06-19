@@ -30,8 +30,8 @@ WriteMakefile(
     ($mm_version >= 6.5503 
       ? (
             BUILD_REQUIRES => {
-                'HTTP::Tiny'            => 0,
-                'Test::More'            => 0,
+                'HTTP::Tiny'            => '0.014',
+                'Test::More'            => '0.82',
             },
             PREREQ_PM      => {
                 'RPC::ExtDirect'        => '3.00',
@@ -41,8 +41,8 @@ WriteMakefile(
         )
      : (
             PREREQ_PM      => {
-                'HTTP::Tiny'            => 0,
-                'Test::More'            => 0,
+                'HTTP::Tiny'            => '0.014',
+                'Test::More'            => '0.82',
                 'RPC::ExtDirect'        => '3.00',
                 'CGI::ExtDirect'        => '3.00',
                 'HTTP::Server::Simple'  => '0.44',
