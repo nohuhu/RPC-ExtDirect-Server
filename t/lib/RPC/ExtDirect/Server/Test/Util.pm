@@ -16,8 +16,20 @@ our @EXPORT = qw/
     like_header
 /;
 
+# Clean the environment to prevent HTTP::Tiny from using any proxies.
+# This "Tiny" suffix is more of an oxymoron now. :/
+sub clean_env {
+    
+    # The list of variables is taken from HTTP::Tiny::_set_proxies code
+    delete @ENV{ qw/ all_proxy ALL_PROXY http_proxy https_proxy no_proxy / };
+
+    return;
+}
+
 sub get {
     my ($uri, $opt, $arg) = @_;
+
+    clean_env();
 
     my $http = HTTP::Tiny->new( max_redirect => 0, %$arg, );
 
@@ -27,6 +39,8 @@ sub get {
 
 sub post {
     my ($uri, $opt, $arg) = @_;
+
+    clean_env();
 
     my $http = HTTP::Tiny->new( max_redirect => 0, %$arg, );
 
