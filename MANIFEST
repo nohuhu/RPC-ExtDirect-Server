@@ -1,6 +1,7 @@
 Changes
 lib/RPC/ExtDirect/Server.pm
 lib/RPC/ExtDirect/Server.pod
+lib/RPC/ExtDirect/Server/Patch/HTTPServerSimple.pm
 lib/RPC/ExtDirect/Server/Util.pm
 lib/RPC/ExtDirect/Server/Util.pod
 Makefile.PL
