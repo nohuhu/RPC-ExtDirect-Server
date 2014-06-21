@@ -20,7 +20,7 @@ use base 'HTTP::Server::Simple::CGI';
 # Version of this module.
 #
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 # We're trying hard not to depend on any non-core modules,
 # but there's no reason not to use them if they're available
@@ -30,6 +30,17 @@ my ($have_http_date, $have_cgi_simple);
     local $@;
     $have_http_date  = eval "require HTTP::Date";
     $have_cgi_simple = eval "require CGI::Simple";
+}
+
+# CGI.pm < 3.36 does not support HTTP_COOKIE environment variable
+# with multiple values separated by commas instead of semicolons,
+# which is exactly what HTTP::Server::Simple::CGI::Environment
+# does in version <= 0.44. The module below will fix that.
+
+if ( $CGI::VERSION < 3.36 && $HTTP::Server::Simple::VERSION <= 0.44 ) {
+    local $@;
+
+    require RPC::ExtDirect::Server::Patch::HTTPServerSimple;
 }
 
 # We assume that HTTP::Date::time2str is better maintained,
