@@ -2,6 +2,7 @@ package RPC::ExtDirect::Server::Patch::HTTPServerSimple;
 
 use strict;
 use warnings;
+no  warnings 'redefine';
 
 # This monkey patching is required for HTTP::Server::Simple <= 0.44;
 # CGI.pm < 3.36 does not support HTTP_COOKIE environment variable with
