@@ -20,7 +20,7 @@ use base 'HTTP::Server::Simple::CGI';
 # Version of this module.
 #
 
-our $VERSION = '1.01';
+our $VERSION = '1.20';
 
 # We're trying hard not to depend on any non-core modules,
 # but there's no reason not to use them if they're available

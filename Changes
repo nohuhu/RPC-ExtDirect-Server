@@ -1,3 +1,6 @@
+1.20  Thu May 14 20:50:02 PDT 2015
+    - Updated to support metadata handling feature in RPC::ExtDirect 3.20+
+
 1.01  Fri Jun 20 20:51:34 2014
     - Better compatibility with CGI.pm < 3.36
     - Test scripts will clean %ENV to avoid connecting to proxies
