@@ -14,6 +14,20 @@ sub qux : ExtDirect(pollHandler) {
     );
 }
 
+sub meta_ordered : ExtDirect(1, metadata => { len => 1, arg => 9 }) {
+    my ($class, $arg1, $meta) = @_;
+
+    return { arg1 => $arg1, meta => $meta };
+}
+
+sub meta_named : ExtDirect(params => [], strict => !1, metadata => { params => [], strict => !1, arg => '_m' }) {
+    my ($class, %arg) = @_;
+
+    my $meta = delete $arg{_m};
+
+    return { arg => \%arg, meta => $meta };
+}
+
 package main;
 
 use strict;
@@ -21,7 +35,7 @@ use warnings;
 
 use RPC::ExtDirect::Test::Util qw/ cmp_api cmp_json /;
 
-use Test::More tests => 10;
+use Test::More tests => 13;
 
 use lib 't/lib';
 use RPC::ExtDirect::Server::Util;
@@ -43,7 +57,7 @@ like_header $resp, 'Content-Type', qr/^application\/javascript/,
     'API content type';
 
 my $want = <<'END_API';
-Ext.app.REMOTING_API = {"actions":{"test":[{"name":"bar","params":["foo","bar"]},{"len":2,"name":"foo"}]},"type":"remoting","url":"/extdirectrouter"};
+Ext.app.REMOTING_API = {"actions":{"test":[{"name":"bar","params":["foo","bar"]},{"len":2,"name":"foo"},{"name":"meta_ordered","len":1,"metadata":{"len":1}},{"name":"meta_named","params":[],"strict":false,"metadata":{"params":[],"strict":false}}]},"type":"remoting","url":"/extdirectrouter"};
 Ext.app.POLLING_API = {"type":"polling","url":"/extdirectevents"};
 END_API
 
@@ -77,6 +91,32 @@ $want = q|{"result":{"foo":42,"bar":"blerg"},"type":"rpc",|.
         q|"action":"test","method":"bar","tid":2}|;
 
 cmp_json $have, $want, "Named req content"
+    or diag explain "Response:", $resp;
+
+$req = q|{"type":"rpc","tid":3,"action":"test","method":"meta_ordered",|.
+       q|"data":[42],"metadata":["foo"]}|;
+
+$resp = post $router_uri, { content => $req };
+
+is_status $resp, 200, "Ordered meta status";
+
+$have = $resp->{content};
+$want = q|{"result":{"arg1":42,"meta":["foo"]},"type":"rpc",|.
+        q|"action":"test","method":"meta_ordered","tid":3}|;
+
+cmp_json $have, $want, "Ordered meta content"
+    or diag explain "Response:", $resp;
+
+$req = q|{"type":"rpc","tid":4,"action":"test","method":"meta_named",|.
+       q|"data":{"foo":"bar"},"metadata":{"fred":"frob"}}|;
+
+$resp = post $router_uri, { content => $req };
+
+$have = $resp->{content};
+$want = q|{"result":{"arg":{"foo":"bar"},"meta":{"fred":"frob"}},|.
+        q|"type":"rpc","action":"test","method":"meta_named","tid":4}|;
+
+cmp_json $have, $want, "Named meta content"
     or diag explain "Response:", $resp;
 
 $resp = get $poll_uri;
