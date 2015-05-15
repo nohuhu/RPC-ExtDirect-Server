@@ -21,62 +21,56 @@ disttest : distdir
 END
 }
 
-my $MM_VERSION = $ExtUtils::MakeMaker::VERSION;
+my $MM_VERSION  = $ExtUtils::MakeMaker::VERSION;
+my $github_repo = 'https://github.com/nohuhu/RPC-ExtDirect-Server';
+
+my %MAIN_REQ = (
+    'RPC::ExtDirect'       => '3.21',
+    'CGI::ExtDirect'       => '3.20',
+    'HTTP::Server::Simple' => '0.44',
+);
+
+my %TEST_REQ = (
+    'HTTP::Tiny' => '0.014',
+    'Test::More' => '0.82',  # for explain()
+);
 
 WriteMakefile(
-    NAME              => 'RPC::ExtDirect::Server',
-    VERSION_FROM      => 'lib/RPC/ExtDirect/Server.pm',
+    NAME         => 'RPC::ExtDirect::Server',
+    VERSION_FROM => 'lib/RPC/ExtDirect/Server.pm',
+    ABSTRACT     => 'A tiny but capable pure Perl Ext.Direct server',
+    AUTHOR       => 'Alex Tokarev <tokarev@cpan.org>',
+    LICENSE      => 'perl',
 
     ($MM_VERSION >= 6.64
         ? (
-            TEST_REQUIRES => {
-                'HTTP::Tiny'            => '0.014',
-                'Test::More'            => '0.82',
-            },
-            PREREQ_PM => {
-                'RPC::ExtDirect'        => '3.01',
-                'CGI::ExtDirect'        => '3.01',
-                'HTTP::Server::Simple'  => '0.44',
-            },
+            TEST_REQUIRES => \%TEST_REQ,
+            PREREQ_PM     => \%MAIN_REQ,
         )
-        : ($MM_VERSION >= 6.5503 
-            ? (
-                BUILD_REQUIRES => {
-                    'HTTP::Tiny'            => '0.014',
-                    'Test::More'            => '0.82',
-                },
-                PREREQ_PM      => {
-                    'RPC::ExtDirect'        => '3.01',
-                    'CGI::ExtDirect'        => '3.01',
-                    'HTTP::Server::Simple'  => '0.44',
-                },
-            )
-            : (
-                PREREQ_PM      => {
-                    'HTTP::Tiny'            => '0.014',
-                    'Test::More'            => '0.82',
-                    'RPC::ExtDirect'        => '3.01',
-                    'CGI::ExtDirect'        => '3.01',
-                    'HTTP::Server::Simple'  => '0.44',
-                },
+        : (
+            ($MM_VERSION >= 6.5503
+                ? (
+                    BUILD_REQUIRES => \%TEST_REQ,
+                    PREREQ_PM      => \%MAIN_REQ,
+                )
+                : (
+                    PREREQ_PM => {
+                        %TEST_REQ,
+                        %MAIN_REQ,
+                    },
+                ),
             ),
         ),
     ),
 
-    ABSTRACT => 'A tiny but capable pure Perl Ext.Direct server',
-    AUTHOR   => 'Alex Tokarev <tokarev@cpan.org>',
-    LICENSE  => 'perl',
 
-    ($MM_VERSION >= 6.48
-        ? ( MIN_PERL_VERSION => 5.006000 )
-        : ()
-    ),
+    ($MM_VERSION >= 6.48 ? ( MIN_PERL_VERSION => 5.006000 ) : ()),
 
     ($MM_VERSION >= 6.46
         ? ( META_MERGE => {
                 resources => {
-                    bugtracker => 'http://github.com/nohuhu/RPC-ExtDirect-Server/issues',
-                    repository => 'http://github.com/nohuhu/RPC-ExtDirect-Server',
+                    bugtracker => "$github_repo/issues/",
+                    repository => $github_repo,
                 },
             },
         )
