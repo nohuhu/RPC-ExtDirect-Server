@@ -28,7 +28,7 @@ INSTALLATION
 
 COPYRIGHT AND LICENSE
 
-    Copyright (c) 2012-2015 Alex Tokarev <tokarev@cpan.org>.
+    Copyright (c) 2012-2016 Alex Tokarev <tokarev@cpan.org>.
 
     Portions of the code that were taken from HTTP::Date are copyright (c)
     1995-1999, Gisle Aas.
