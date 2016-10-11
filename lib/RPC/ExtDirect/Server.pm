@@ -20,7 +20,7 @@ use base 'HTTP::Server::Simple::CGI';
 # Version of this module.
 #
 
-our $VERSION = '1.20';
+our $VERSION = '1.21';
 
 # We're trying hard not to depend on any non-core modules,
 # but there's no reason not to use them if they're available
@@ -35,9 +35,9 @@ my ($have_http_date, $have_cgi_simple);
 # CGI.pm < 3.36 does not support HTTP_COOKIE environment variable
 # with multiple values separated by commas instead of semicolons,
 # which is exactly what HTTP::Server::Simple::CGI::Environment
-# does in version <= 0.44. The module below will fix that.
+# does in version <= 0.51. The module below will fix that.
 
-if ( $CGI::VERSION < 3.36 && $HTTP::Server::Simple::VERSION <= 0.44 ) {
+if ( $CGI::VERSION < 3.36 && $HTTP::Server::Simple::VERSION <= 0.51 ) {
     local $@;
 
     require RPC::ExtDirect::Server::Patch::HTTPServerSimple;
@@ -194,6 +194,7 @@ sub handle_default {
         $self->logit("Got readable file, serving as static content");
         return $self->handle_static(
             cgi       => $cgi,
+            path      => $path,
             file_name => $file_name,
         );
     }
@@ -243,9 +244,7 @@ sub handle_static {
 
     $self->logit("Handling static request for $file_name");
 
-    my ($fino, $fsize, $fmtime) = (stat $file_name)[1, 7, 9];
-    return $self->handle_404() unless $fino;
-
+    my ($fsize, $fmtime) = (stat $file_name)[7, 9];
     my ($type, $charset) = $self->_guess_mime_type($file_name);
     
     $self->logit("Got MIME type $type");
@@ -632,9 +631,23 @@ my %MIME_TYPES = (
                       ? !1
                       : eval "require File::LibMagic";
     
-    my $have_mimeinfo = $ENV{DEBUG_NO_FILE_MIMEINFO}
-                      ? !1
-                      : eval "require File::MimeInfo";
+    #
+    # File::MimeInfo is a bit kludgy: it depends on shared-mime-info database
+    # being installed, and when said database is missing it will do only
+    # very basic guessing that is not very useful. Not only that, it will
+    # also complain loudly into STDERR about the missing database, which is
+    # definitely not helping either. So in addition to checking if the module
+    # itself is available we poke a bit deeper and decide if it's worth using.
+    #
+    my $have_mimeinfo = !$ENV{DEBUG_NO_FILE_MIMEINFO} &&
+        eval {
+            require File::MimeInfo;
+            # This is a dependency of File::MimeInfo
+            require File::BaseDir;
+
+            # When both arrays are empty the module is essentially useless
+            @File::MimeInfo::DIRS || File::BaseDir::data_files('mime/globs');
+        };
     
     sub _guess_mime_type {
         my ($self, $file_name) = @_;
