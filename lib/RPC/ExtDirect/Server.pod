@@ -310,9 +310,9 @@ there if you really need it.
 
 RPC::ExtDirect::Server is built around CGI.pm I<API> but that does not
 mean that CGI.pm is the only module it can work with. L<CGI::Simple>
-can be used instead, and is tested against to ensure future proofness.
-In fact when CGI::Simple is detected, it will be used instead of CGI.pm
-with no action required on your part.
+can be used instead; however considering that CGI.pm has been undergoing
+a revival and refactoring it is no longer necessary to use CGI::Simple
+or other CGI.pm replacement unless you have a very valid reason to do so.
 
 It is also possible that other modules may be implementing API that is
 compatible with CGI.pm; in that case RPC::ExtDirect::Server should also

@@ -29,7 +29,11 @@ my ($have_http_date, $have_cgi_simple);
 {
     local $@;
     $have_http_date  = eval "require HTTP::Date";
-    $have_cgi_simple = eval "require CGI::Simple";
+
+    # CGI::Simple is only meaningful if we're using old CGI.pm,
+    # and only if certain version of CGI::Simple is available
+    $have_cgi_simple = $CGI::VERSION < 4.0
+        && eval "require CGI::Simple; $CGI::Simple::VERSION > 1.113";
 }
 
 # CGI.pm < 3.36 does not support HTTP_COOKIE environment variable
@@ -500,9 +504,7 @@ sub _init_cgi_class {
             });
         }
     }
-    elsif ( $have_cgi_simple && $CGI::Simple::VERSION > 1.113 &&
-            $self->cgi_class eq 'CGI' )
-    {
+    elsif ( $have_cgi_simple && $self->cgi_class eq 'CGI' ) {
         $self->cgi_class('CGI::Simple');
         $self->cgi_init(undef);
     }
