@@ -21,7 +21,8 @@ use RPC::ExtDirect::Test::Util qw/ cmp_api cmp_json /;
 use Test::More;
 
 if ( eval "require CGI::Simple" ) {
-    plan tests => 3;
+    eval "require CGI;" and
+        plan tests => 3;
 }
 else {
     plan skip_all => 'CGI::Simple not installed';
@@ -48,7 +49,8 @@ my $have = $resp->{content};
 my ($want, $desc);
 
 # If CGI::Simple <= 1.113 is installed, the Server should not use it
-if ( $CGI::Simple::VERSION > 1.113 ) {
+# But *not* if CGI.pm > 4.0 is present
+if ( $CGI::Simple::VERSION > 1.113 && $CGI::VERSION < 4.0 ) {
     $desc = "CGI req status true, CGI::Simple = $CGI::Simple::VERSION";
     $want = q|{"result":true,"type":"rpc","action":"test",|.
             q|"method":"cgi","tid":3}|;
