@@ -116,7 +116,8 @@ sub new {
     $self->static_dir($static_dir);
     $self->logit("Using static directory ". $self->static_dir);
     
-    while ( my ($k, $v) = each %DEFAULTS ) {
+    foreach my $k (keys %DEFAULTS) {
+        my $v = $DEFAULTS{$k};
         my $value = exists $arg{ $k } ? delete $arg{ $k } : $v;
         
         $self->$k($value);
