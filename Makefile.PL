@@ -25,8 +25,8 @@ my $MM_VERSION  = $ExtUtils::MakeMaker::VERSION;
 my $github_repo = 'https://github.com/nohuhu/RPC-ExtDirect-Server';
 
 my %MAIN_REQ = (
-    'RPC::ExtDirect'       => '3.21',
-    'CGI::ExtDirect'       => '3.20',
+    'RPC::ExtDirect'       => '3.24',
+    'CGI::ExtDirect'       => '3.24',
     'HTTP::Server::Simple' => '0.44',
 );
 
